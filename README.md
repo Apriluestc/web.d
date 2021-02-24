@@ -21,30 +21,6 @@
 - 实现异步日志实时记录服务器运行状态(便于 Debug)
 - webd 服务以 dameon 进程运行
 
-## 职责
-
-首先，本项目分为 3 个模块，分别是  HTTP、事件驱动、日志
-
-**我负责实现日志模块和事件驱动模块**
-
-- 事件驱动模块
-
-对于事件驱动模块包含两个核心类 Channel、EventLoop，其中，Channel 是 Reactor 模式中的事件，自始至终只属于一个 EventLoop，负责一个文件描述符的 IO 事件，
-在 Channel 类中保存这些 IO 事件的类型及与其对应的 CallBackFunc，当 IO 事件发生的时候，最终会调用到 Channel 中的回调函数，因此，程序中
-所有带有读写事件的对象都会和一个 Channel 关联，包括 Loop 中的 eventfd、listenfd，EventLoop 中意味着每个线程只能有一个 EventLoop 对象，EventLoop 即是
-时间循环，每次从 Epoller 中拿活跃事件，并给到 Channel 里分发处理，EventLoop 中的 Loop 函数会在最底层 Thread 中调用，开始轮询，直到某一轮检测到退出状态后，才逐层退出
-
-- 日志模块
-
-首先多线程异步日志需要线程安全的保证，即多个线程可以写日志文件而不发生错乱，简单的线程安全并不难办到，用一个 全局的 Mutex 对日志的 IO 操作进行保护或者
-单独写一个日志文件即可，但是前者会造成多个线程竞争锁资源，后者会造成某个业务线程阻塞
-
-本项目可行的解决方案就是，用一个背景线程负责收集日志消息并将其写入后端，其他业务线程只负责生成的日志消息并将其传输到日志线程，这便是异步日志
-
-日志的实现应用双缓冲区技术，即存在两个 Buffer，日志的实现分为前端和后端， 前端负责向 CurrentBuffer 中写，后端负责 将其写入文件中，具体来说，当 CurrentBuffer 写满
-时，先将 CurrentBuffer 中的消息存入 Buffer 中，在交换 CurrentBuffer 和 NextBuffer，这样 前端就可以继续往 CurrentBuffer 中写新的日志
-消息， 最后再调用 notify_all 通知后端将其写入文件
-
 ## 项目来源
 
 - [陈硕](https://github.com/chenshuo/muduo/tree/master/muduo/net)
